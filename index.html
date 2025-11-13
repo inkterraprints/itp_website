@@ -1,11 +1,28 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>InkTerra Prototype</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>InkTerra Prototype</title>
+    <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
-  <h1>InkTerra Prototype Workspace</h1>
-  <p>This repo is for building custom interactive blocks for InkTerraPrints.com</p>
+
+    <div id="overlay" class="overlay">
+        <div class="popup">
+            <h2>Draw Your Brand</h2>
+            <p>Show us what your brand looks like today. Take 10–30 seconds.</p>
+
+            <canvas id="drawCanvas" width="400" height="300"></canvas>
+
+            <div class="popup-buttons">
+                <button id="saveBtn">Save</button>
+                <button id="skipBtn">Not Now</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
 </body>
 </html>
