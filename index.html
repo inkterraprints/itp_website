@@ -1,28 +1,82 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>InkTerra Prototype</title>
-    <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <title>InkTerra Paint – Brand Snapshot</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
-
 <body>
+  <!-- Overlay that will eventually sit on top of your real site -->
+  <div class="itp-overlay" id="itp-overlay">
+    <div class="paint-window">
+      <div class="title-bar">
+        <span class="title">InkTerra Paint – Brand Snapshot</span>
+        <button class="title-btn" id="skipBtn">Not now ✕</button>
+      </div>
 
-    <div id="overlay" class="overlay">
-        <div class="popup">
-            <h2>Draw Your Brand</h2>
-            <p>Show us what your brand looks like today. Take 10–30 seconds.</p>
+      <div class="paint-body">
+        <!-- Toolbar -->
+        <aside class="toolbar">
+          <button class="tool-btn active" data-tool="pen">
+            ✏️<span>Pen</span>
+          </button>
+          <button class="tool-btn" data-tool="eraser">
+            🩹<span>Eraser</span>
+          </button>
+          <button class="tool-btn" id="clearBtn">
+            🗑️<span>Clear</span>
+          </button>
+        </aside>
 
-            <canvas id="drawCanvas" width="400" height="300"></canvas>
+        <!-- Canvas + controls -->
+        <main class="canvas-panel">
+          <header class="panel-header">
+            <h1>Draw Your Brand</h1>
+            <p>
+              Show us what your brand looks like today. Take 10–30 seconds or as
+              long as you like – this is your Day 1 snapshot.
+            </p>
+          </header>
 
-            <div class="popup-buttons">
-                <button id="saveBtn">Save</button>
-                <button id="skipBtn">Not Now</button>
+          <div class="canvas-wrap">
+            <canvas id="brandCanvas"></canvas>
+          </div>
+
+          <footer class="panel-footer">
+            <div class="palette">
+              <span class="palette-label">Colors</span>
+              <button class="swatch active" data-color="#000000"></button>
+              <button class="swatch" data-color="#ffffff"></button>
+              <button class="swatch" data-color="#264653"></button>
+              <button class="swatch" data-color="#E76F51"></button>
+              <button class="swatch" data-color="#2A9D8F"></button>
+              <button class="swatch" data-color="#E9C46A"></button>
+              <button class="swatch" data-color="#6C757D"></button>
             </div>
-        </div>
-    </div>
 
-    <script src="script.js"></script>
+            <div class="controls">
+              <label class="brush-label">
+                Brush
+                <input
+                  type="range"
+                  id="brushSize"
+                  min="2"
+                  max="24"
+                  value="6"
+                />
+                <span id="brushSizeValue">6px</span>
+              </label>
+
+              <button class="save-btn" id="saveBtn">
+                Save PNG
+              </button>
+            </div>
+          </footer>
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
