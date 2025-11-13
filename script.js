@@ -1,127 +1,211 @@
-// === InkTerra Paint – basic MS Paint style drawing ===
+// ====== CONFIG ======
+const GOOGLE_SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbwdAk3E0e4VM00o0gQvGyRXtyKW94a9_nZoFjCTRFkan3t0PWJ8-DoxRsn9qfpQ-gtN/exec";
 
-const canvas = document.getElementById("brandCanvas");
-const ctx = canvas.getContext("2d");
-
+// ====== DOM ELEMENTS ======
 const overlay = document.getElementById("itp-overlay");
+const canvas = document.getElementById("brandCanvas");
 const skipBtn = document.getElementById("skipBtn");
 const clearBtn = document.getElementById("clearBtn");
 const saveBtn = document.getElementById("saveBtn");
-const toolButtons = document.querySelectorAll(".tool-btn[data-tool]");
-const swatches = document.querySelectorAll(".swatch");
 const brushSizeInput = document.getElementById("brushSize");
 const brushSizeValue = document.getElementById("brushSizeValue");
+const emailInput = document.getElementById("emailInput");
+const statusMsg = document.getElementById("statusMsg");
+
+const toolButtons = document.querySelectorAll(".tool-btn[data-tool]");
+const swatches = document.querySelectorAll(".swatch");
+
+const ctx = canvas.getContext("2d");
+const CANVAS_BG = "#ffffff";
 
 let currentTool = "pen";
 let currentColor = "#000000";
 let brushSize = parseInt(brushSizeInput.value, 10);
 let isDrawing = false;
-let lastX = 0;
-let lastY = 0;
+let lastPoint = { x: 0, y: 0 };
 
-// Resize canvas to fit its wrapper
+// ====== CANVAS SETUP ======
 function resizeCanvas() {
-  const rect = canvas.parentElement.getBoundingClientRect();
-  canvas.width = rect.width;
-  canvas.height = rect.height;
-  // Fill background white so eraser works nicely
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+
+  // fill background
+  ctx.fillStyle = CANVAS_BG;
+  ctx.fillRect(0, 0, rect.width, rect.height);
+  ctx.beginPath();
 }
 
-window.addEventListener("load", resizeCanvas);
-window.addEventListener("resize", () => {
-  // NOTE: Resizing clears the drawing – fine for this prototype.
-  resizeCanvas();
-});
-
-// Drawing helpers
-function getPos(evt) {
+function clearCanvas() {
   const rect = canvas.getBoundingClientRect();
-  if (evt.touches && evt.touches[0]) {
-    return {
-      x: evt.touches[0].clientX - rect.left,
-      y: evt.touches[0].clientY - rect.top
-    };
-  }
+  ctx.fillStyle = CANVAS_BG;
+  ctx.fillRect(0, 0, rect.width, rect.height);
+  ctx.beginPath();
+}
+
+// ====== DRAWING HELPERS ======
+function getCanvasCoordinates(event) {
+  const rect = canvas.getBoundingClientRect();
+  const clientX = event.clientX ?? event.touches?.[0]?.clientX;
+  const clientY = event.clientY ?? event.touches?.[0]?.clientY;
+
+  if (clientX == null || clientY == null) return lastPoint;
+
   return {
-    x: evt.clientX - rect.left,
-    y: evt.clientY - rect.top
+    x: clientX - rect.left,
+    y: clientY - rect.top
   };
 }
 
-function startDrawing(evt) {
-  evt.preventDefault();
+function startDrawing(event) {
+  event.preventDefault();
   isDrawing = true;
-  const pos = getPos(evt);
-  lastX = pos.x;
-  lastY = pos.y;
+  lastPoint = getCanvasCoordinates(event);
 }
 
-function draw(evt) {
+function draw(event) {
   if (!isDrawing) return;
-  evt.preventDefault();
+  event.preventDefault();
 
-  const pos = getPos(evt);
+  const point = getCanvasCoordinates(event);
 
-  ctx.lineCap = "round";
   ctx.lineJoin = "round";
+  ctx.lineCap = "round";
   ctx.lineWidth = brushSize;
 
   if (currentTool === "eraser") {
-    ctx.strokeStyle = "#ffffff";
+    ctx.strokeStyle = CANVAS_BG;
   } else {
     ctx.strokeStyle = currentColor;
   }
 
   ctx.beginPath();
-  ctx.moveTo(lastX, lastY);
-  ctx.lineTo(pos.x, pos.y);
+  ctx.moveTo(lastPoint.x, lastPoint.y);
+  ctx.lineTo(point.x, point.y);
   ctx.stroke();
 
-  lastX = pos.x;
-  lastY = pos.y;
+  lastPoint = point;
 }
 
-function stopDrawing(evt) {
+function stopDrawing(event) {
   if (!isDrawing) return;
-  evt && evt.preventDefault();
+  event?.preventDefault();
   isDrawing = false;
 }
 
-// Mouse events
-canvas.addEventListener("mousedown", startDrawing);
-canvas.addEventListener("mousemove", draw);
-canvas.addEventListener("mouseup", stopDrawing);
-canvas.addEventListener("mouseleave", stopDrawing);
+// ====== UI HELPERS ======
+function setStatus(message, isError = false) {
+  if (!statusMsg) return;
+  statusMsg.textContent = message || "";
+  statusMsg.style.color = isError ? "#b91c1c" : "#166534";
+}
 
-// Touch events
-canvas.addEventListener("touchstart", startDrawing, { passive: false });
-canvas.addEventListener("touchmove", draw, { passive: false });
-canvas.addEventListener("touchend", stopDrawing, { passive: false });
-canvas.addEventListener("touchcancel", stopDrawing, { passive: false });
+function hideOverlay() {
+  if (overlay) {
+    overlay.style.display = "none";
+  }
+}
+
+// ====== SAVE: PNG + GOOGLE SHEET ======
+async function saveSnapshot() {
+  const email = emailInput.value.trim();
+
+  if (!email) {
+    setStatus("Please enter an email so we can send your snapshot.", true);
+    emailInput.focus();
+    return;
+  }
+
+  // Get PNG data
+  const dataUrl = canvas.toDataURL("image/png");
+  const timestamp = new Date().toISOString();
+
+  setStatus("Saving your brand snapshot…");
+
+  // Fire-and-forget to Google Apps Script
+  try {
+    await fetch(GOOGLE_SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors",
+      body: JSON.stringify({
+        email,
+        imageData: dataUrl,
+        timestamp
+      })
+    });
+  } catch (err) {
+    console.error("Error sending to Google Script:", err);
+    // We still let them download locally even if this fails
+  }
+
+  // Trigger local download
+  const safeTimestamp = timestamp.replace(/[:.]/g, "-");
+  const link = document.createElement("a");
+  link.href = dataUrl;
+  link.download = `inkterra-brand-snapshot-${safeTimestamp}.png`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  // Follow-up message + close overlay
+  setStatus("Snapshot saved! Check your email soon for Day 1 of your brand with InkTerra Prints.");
+  hideOverlay();
+}
+
+// ====== EVENT BINDINGS ======
+window.addEventListener("load", () => {
+  resizeCanvas();
+  brushSizeValue.textContent = `${brushSize}px`;
+});
+
+window.addEventListener("resize", () => {
+  const wasDrawing = isDrawing;
+  isDrawing = false;
+  resizeCanvas();
+  isDrawing = wasDrawing;
+});
+
+// Drawing events
+canvas.addEventListener("pointerdown", startDrawing);
+canvas.addEventListener("pointermove", draw);
+canvas.addEventListener("pointerup", stopDrawing);
+canvas.addEventListener("pointerleave", stopDrawing);
+canvas.addEventListener("pointercancel", stopDrawing);
+
+// Touch prevent scrolling while drawing
+canvas.addEventListener(
+  "touchstart",
+  (e) => e.preventDefault(),
+  { passive: false }
+);
+canvas.addEventListener(
+  "touchmove",
+  (e) => e.preventDefault(),
+  { passive: false }
+);
 
 // Tools
 toolButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
-    const tool = btn.dataset.tool;
-    if (!tool) return;
-
-    currentTool = tool;
-
     toolButtons.forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
+    currentTool = btn.getAttribute("data-tool") || "pen";
   });
 });
 
-// Palette
-swatches.forEach((sw) => {
-  sw.addEventListener("click", () => {
-    const color = sw.dataset.color;
-    currentColor = color;
-
+// Color swatches
+swatches.forEach((swatch) => {
+  swatch.addEventListener("click", () => {
     swatches.forEach((s) => s.classList.remove("active"));
-    sw.classList.add("active");
+    swatch.classList.add("active");
+    currentColor = swatch.dataset.color || "#000000";
   });
 });
 
@@ -133,23 +217,17 @@ brushSizeInput.addEventListener("input", () => {
 
 // Clear
 clearBtn.addEventListener("click", () => {
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  clearCanvas();
+  setStatus("");
 });
 
-// Save PNG
+// Save
 saveBtn.addEventListener("click", () => {
-  const dataUrl = canvas.toDataURL("image/png");
-
-  const link = document.createElement("a");
-  link.href = dataUrl;
-  link.download = "inkterra-brand-snapshot.png";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  saveSnapshot();
 });
 
-// Skip / Not now
+// Skip
 skipBtn.addEventListener("click", () => {
-  overlay.classList.add("hidden");
+  hideOverlay();
+  setStatus("");
 });
